@@ -1,0 +1,188 @@
+---
+title: "hw05"
+output: 
+  html_document:     
+    self_contained: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This is the assignment5 of STAT545, which would mainly focus on the skills of factor, I/O and visual design. The file is well organised by four parts:  
+
+-  Factor Management
+-  File Import/Export
+-  Visualization Design
+-  Writing Figures to File
+
+Let's start it with loading the packages.
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(gapminder))
+```
+
+## Part 1: Factor management
+
+- **Drop factor / levels**
+
+To figure out the function of `droplevels`, Oceania is dropped here.
+
+```{r}
+before_drop <- gapminder %>% 
+  filter(continent != "Oceania") 
+levels(before_drop$continent)
+
+after_drop <- droplevels(before_drop) 
+levels(after_drop$continent)
+```
+
+From the above, we could see that `droplevels()` function removes unused factor Ocenia in continent.
+
+- **Reorder levels based on knowledge from data**
+
+In this section, the effects of `arrange()` and `fct_reorder()` are dicusssed in three dimensions: table, levels and figure.
+
+1. Firstly, let's look into the continent of original dataset. 
+
+```{r}
+knitr::kable(head(gapminder)) # report the first factor in the table
+
+levels(gapminder$continent) # report the order of factors
+
+gapminder %>% 
+  ggplot(aes(x = continent)) +
+  geom_bar() # demonstrate the sequence of levels in the plot
+```
+
+2. Then try to `arrange()` the continent in descending order. See what would happen.
+
+```{r}
+
+df <- gapminder %>% 
+  arrange(desc(continent))
+
+knitr::kable(head(df))
+
+levels(df$continent)
+
+df %>% 
+  ggplot(aes(x = continent)) +
+  geom_bar()
+
+```
+
+As observed, the first factor listed in the table has changed to Oceania since `arrange()`. However, it doesn't have a effect on the levels and graph.
+
+3. Move to `fct_reorder` now. Order the continent level by the max of life expectancy.
+
+```{r}
+df <- gapminder %>% 
+  mutate(continent = fct_reorder(continent,.fun=max,lifeExp))
+
+knitr::kable(head(df))
+
+levels(df$continent)
+
+df %>% 
+  ggplot(aes(x = continent)) +
+  geom_bar()
+
+
+```
+
+`fct_reorder` has no effect on the contents of table. But the order of levels indeed changes. And the sequence in the graph always follows the levels. 
+
+4. Last, use both `fct_order` and `arrange` here.
+
+```{r}
+df <- gapminder %>% 
+  arrange(desc(continent)) %>% 
+  mutate(continent = fct_reorder(continent, .fun=max, lifeExp))
+
+knitr::kable(head(df))
+
+levels(df$continent)
+
+df %>% 
+  ggplot(aes(x = continent)) +
+  geom_bar()
+
+```
+
+It can be concluded that the effects of two functions mix together. The table follows `arrange` and the levels follow `fct_reorder`.
+
+## Part 2: File I/O
+
+Out of convenience, use `df`(non-alphabetical) from the previous section to test.
+
+```{r}
+write_csv(df,"my_df.csv")
+read_df <- read_csv("my_df.csv")
+summary(read_df)
+head(read_df)
+levels(read_df)
+```
+
+The new df from csv file stores the contents of original table, but it lose the factors.
+
+## Part 3: Visualization design
+
+This graph shows how the mean of life expectancy changes in five continents. 
+
+```{r}
+p <- gapminder %>% 
+  group_by(continent,year) %>% 
+  summarise(mean = mean(lifeExp)) %>% 
+  ggplot(aes(y = mean,x = year)) +
+  facet_wrap(~ continent) +
+  geom_line() 
+p
+```
+
+It's correct but not good. Let's make it more juicy now.
+
+```{r}
+p_new <- p +
+  geom_point(aes(color = continent)) + # colored by continent
+  labs(x = "Year",
+          y = "Mean of Life Expectancy",
+          title = "The mean of life expectancy over time in five continents") + # change the axis-label's names and add the title
+  theme_bw() + # apply the theme
+  theme(axis.text = element_text(size=7), # adjust the size of axis-text
+          strip.background = element_rect(fill= "orange") # fill the background of banner
+        )
+p_new
+```
+
+All the changes are mentioned in the in-line code comments. The new graph is much better to diffentiate the five continents and understand what the values represent.
+
+Next up, convert this graph to a `plotly` one.(Shown in the ![html]() file)
+
+```{r}
+ggplotly(p_new)
+```
+
+Many advantages that plotly has over ggplot2, such as:
+
+- Interactive with graph.
+- Customizing the layout (plot borders, y axis) is easier.
+- Flexible for Python, Matlab, and Excel, among other languages.
+- Possible for multi-dimensions graph.
+
+## Part 4: Writing figures to file
+
+Save the plot from the previous section to file.
+
+```{r}
+ggsave("my_plot.png", p_new, width = 10, height = 6, dpi = 300)
+```
+
+Then read it out.
+
+
+![Load the plot](my_plot.png)
+
